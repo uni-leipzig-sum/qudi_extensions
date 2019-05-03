@@ -153,7 +153,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
         """
         :return: list of channel names
         """
-        return self._counting_logic._counting_device.get_counter_channels()
+        return self._counter_logic._counting_device.get_counter_channels()
 
     def set_up_scanner_clock(self, clock_frequency=None, clock_channel=None):
         """ Configures the hardware clock of the NiDAQ card to give the timing.
@@ -165,7 +165,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
 
         @return int: error code (0:OK, -1:error)
         """
-        self._counting_logic.set_count_frequency(clock_frequency)
+        self._counter_logic.set_count_frequency(clock_frequency)
         return 0
 
     def set_up_scanner(self, counter_channels=None, sources=None,
