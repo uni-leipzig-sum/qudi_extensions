@@ -34,7 +34,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
     _modtype = 'hardware'
 
     # connectors
-    counter = Connector(interface='SlowCounterInterface')
+    counter_logic = Connector(interface='CounterLogic')
 
     # --- config ---
     _clock_frequency = ConfigOption('clock_frequency', 100, missing='warn')
@@ -84,7 +84,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
     def on_activate(self):
         """ Initialisation performed during activation of the module.
         """
-        self._counting_device = self.counter()
+        self._counter_logic = self.counter_logic()
         self._comedi_device = comedi.comedi_open(self._ni_device_path)
         
         # Query the NI card for the resolution in bits
@@ -96,13 +96,14 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
                                  self._ni_trigger_dio_subdevice,
                                  self._ni_trigger_dio_channel,
                                  comedi.COMEDI_OUTPUT)
+        self._counter_logic.sigCounterUpdated.connect(self._got_pixel_counts)
         self.log.info("NI-Card PCI-6259 is initialized")
         return 0
 
     def on_deactivate(self):
         """ sets all three outputs to 0 V
         """
-        
+        self._counter_logic.sigCounterUpdated.disconnect()
         return self.reset_hardware()
 
     def reset_hardware(self):
@@ -152,7 +153,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
         """
         :return: list of channel names
         """
-        return self._counting_device.get_counter_channels()
+        return self._counting_logic._counting_device.get_counter_channels()
 
     def set_up_scanner_clock(self, clock_frequency=None, clock_channel=None):
         """ Configures the hardware clock of the NiDAQ card to give the timing.
@@ -164,7 +165,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
 
         @return int: error code (0:OK, -1:error)
         """
-        self._counting_device.set_up_clock(clock_frequency)
+        self._counting_logic.set_count_frequency(clock_frequency)
         return 0
 
     def set_up_scanner(self, counter_channels=None, sources=None,
@@ -295,6 +296,12 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
         self._line_length = length
         return 0
 
+    def _got_pixel_counts(self):
+        if not self.pixel_done:
+            self.current_pixel = [self._counter_logic.countdata[i, -1] for i in
+                                  self._counter_logic.countdata.shape[0]]
+            self.pixel_done = True
+
     def scan_line(self, line_path=None, pixel_clock=False):
         """ Scans a line and returns the counts on that line.
 
@@ -317,6 +324,11 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
         for pixel in range(len(line_path[0])):
             t0 = time.time()
             self.scanner_set_position(line_path[0, pixel], line_path[1, pixel], line_path[2, pixel])
+            self.pixel_done = False
+            while not self.pixel_done:
+                time.sleep(0.001)
+            self.count_data[pixel] = self.current_pixel
+
             #self.count_data[pixel] = [np.average(i) for i in list(self._counting_device.get_counter())]
             time_per_pix.append(time.time()-t0)
         self.log.info("Scan time per pixel: " + str(time_per_pix))
