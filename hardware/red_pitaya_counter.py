@@ -71,7 +71,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
         if 'samples_number' in config.keys():
             self._samples_number = config['samples_number']
         else:
-            self._samples_number = 10
+            self._samples_number = 1
             self.log.warning('No parameter "samples_number" configured in '
                     'Red Pitaya Counter, taking the default value of {0} '
                     'instead.'.format(self._samples_number))
@@ -147,6 +147,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
 
         self.log.info("Count frequency set to %fHz (=%fs)" % (clock_frequency, 1./clock_frequency))
         self._send_command('COUNT:time {:f}'.format(1./clock_frequency))
+        self._clock_frequency = clock_frequency
 
         return 0
 
@@ -179,7 +180,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
         else:
             samples = int(samples)
 
-        self._count_time = float(self._query_command("COUNT:time?"))
+        #self._count_time = float(self._query_command("COUNT:time?"))
         count_data = np.empty([self.source_channels+1, samples], dtype=np.uint32)
         for i in range(samples):
             counts = [int(x) for x in self._query_command('COUNT:WRSC?').split(',')]
@@ -190,7 +191,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
                 return 0
                 
             for j in range(self.source_channels+1):
-                count_data[j, i] = int(counts[j] / self._count_time)
+                count_data[j, i] = int(counts[j] * self._clock_frequency)
                 
         return count_data
 

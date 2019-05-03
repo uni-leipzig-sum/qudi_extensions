@@ -53,8 +53,8 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
     # Max output voltage allowed for the scanner piezos
     _max_output_voltage = ConfigOption('max_output_voltage', 3, missing='warn')
     # Piezo scanner calibration values
-    _piezo_scanner_x_meter_per_volt = ConfigOption('piezo_scanner_x_meter_per_volt', 1e-6, missing='warn')
-    _piezo_scanner_y_meter_per_volt = ConfigOption('piezo_scanner_y_meter_per_volt', 1e-6, missing='warn')
+    _piezo_scanner_x_meter_per_volt = ConfigOption('piezo_scanner_x_meter_per_volt', 1.4e-5, missing='warn')
+    _piezo_scanner_y_meter_per_volt = ConfigOption('piezo_scanner_y_meter_per_volt', 1.4e-5, missing='warn')
     _piezo_scanner_z_meter_per_volt = ConfigOption('piezo_scanner_z_meter_per_volt', 1e-6, missing='warn')
 
 
@@ -164,6 +164,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
 
         @return int: error code (0:OK, -1:error)
         """
+        self._counting_device.set_up_clock(clock_frequency)
         return 0
 
     def set_up_scanner(self, counter_channels=None, sources=None,
@@ -244,11 +245,6 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
 
         @return int: error code (0:OK, -1:error)
         """
-        self.log.info("new position: x=%gm (=%gV, =%g), y=%gm (=%gV, =%g), z=%gm (=%gV, =%g)" % (
-            x, self._position_to_voltage(0, x), self._position_to_comedi(0, x),
-            y, self._position_to_voltage(1, y), self._position_to_comedi(1, y),
-            z, self._position_to_voltage(2, z), self._position_to_comedi(2, z)))
-
         if self.module_state() == 'locked':
             self.log.error('A Scanner is already running, close this one first.')
             return -1
@@ -268,9 +264,6 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
                 )
                 return -1
             else:
-                self.log.info("Calling comedi_data_write(dev, %d, %d, %d, %d, %d)" % (
-                    self._ni_scanner_ao_subdevice, axis, self._ni_scanner_ao_range,
-                    comedi.AREF_GROUND, comedi_sample))
                 if comedi.comedi_data_write(self._comedi_device, self._ni_scanner_ao_subdevice, axis, self._ni_scanner_ao_range, comedi.AREF_GROUND, comedi_sample) < 0:
                     self.log.error("scanner_set_position: comedi_data_write failed")
 
@@ -320,9 +313,13 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
             self._set_up_line(np.shape(line_path)[1])
 
         self.count_data = np.zeros((len(line_path[0]), len(self.get_scanner_count_channels())))
+        time_per_pix = []
         for pixel in range(len(line_path[0])):
+            t0 = time.time()
             self.scanner_set_position(line_path[0, pixel], line_path[1, pixel], line_path[2, pixel])
-            self.count_data[pixel] = [float(i) for i in list(self._counting_device.get_counter())]
+            #self.count_data[pixel] = [np.average(i) for i in list(self._counting_device.get_counter())]
+            time_per_pix.append(time.time()-t0)
+        self.log.info("Scan time per pixel: " + str(time_per_pix))
         return self.count_data
 
     def close_scanner(self):
