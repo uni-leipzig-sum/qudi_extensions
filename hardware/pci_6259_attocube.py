@@ -62,6 +62,11 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
         super().__init__(config=config, **kwargs)
 
         self._comedi_parsed_calibration = None
+        
+        # Used for scanning a line. When we are waiting for the counts
+        # for the current pixel, set this to false and wait for it to
+        # be turned True again. Then the pixel will have been processed.
+        self.pixel_done = True
 
         # Internal parameters
         self._line_length = None
