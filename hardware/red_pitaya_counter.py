@@ -146,7 +146,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
         """
 
         self.log.info("Count frequency set to %fHz (=%fs)" % (clock_frequency, 1./clock_frequency))
-        self._send_command('COUNT:time {:f}'.format(1./clock_frequency))
+        self._send_command('COUNTER:TIME {:f}'.format(1./clock_frequency))
         self._clock_frequency = clock_frequency
 
         return 0
@@ -183,7 +183,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
         #self._count_time = float(self._query_command("COUNT:time?"))
         count_data = np.empty([self.source_channels+1, samples], dtype=np.uint32)
         for i in range(samples):
-            counts = [int(x) for x in self._query_command('COUNT:WRSC?').split(',')]
+            counts = [int(x) for x in self._query_command('COUNTER:COUNT?').split(',')]
             counts += [sum(counts)]
             if len(counts) < self.source_channels:
                 self.log.error('Red Pitaya Counter got counts from {0} channels, but {1} '
