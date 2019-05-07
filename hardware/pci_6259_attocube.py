@@ -304,7 +304,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
     def _got_pixel_counts(self):
         if not self.pixel_done:
             self.current_pixel = [self._counter_logic.countdata[i, -1] for i in
-                                  self._counter_logic.countdata.shape[0]]
+                                  range(self._counter_logic.countdata.shape[0])]
             self.pixel_done = True
 
     def scan_line(self, line_path=None, pixel_clock=False):
