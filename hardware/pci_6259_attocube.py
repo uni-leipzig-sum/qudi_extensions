@@ -35,6 +35,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
 
     # connectors
     counter_logic = Connector(interface='CounterLogic')
+    afm_logic = Connector(interface='AfmLogic')
 
     # --- config ---
     _clock_frequency = ConfigOption('clock_frequency', 100, missing='warn')
@@ -90,6 +91,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
         """ Initialisation performed during activation of the module.
         """
         self._counter_logic = self.counter_logic()
+        self._afm_logic = self.afm_logic()
         self._comedi_device = comedi.comedi_open(self._ni_device_path)
         
         # Query the NI card for the resolution in bits
@@ -158,7 +160,8 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
         """
         :return: list of channel names
         """
-        return self._counter_logic._counting_device.get_counter_channels()
+        # Counter + AFM channel
+        return self._counter_logic._counting_device.get_counter_channels() + ['AFM elevation']
 
     def set_up_scanner_clock(self, clock_frequency=None, clock_channel=None):
         """ Configures the hardware clock of the NiDAQ card to give the timing.
@@ -307,7 +310,7 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
                                   range(self._counter_logic.countdata.shape[0])]
             self.pixel_done = True
 
-    def scan_line(self, line_path=None, pixel_clock=False):
+    def scan_line(self, line_path=None, pixel_clock=False, include_afm_elevation=False):
         """ Scans a line and returns the counts on that line.
 
         @param float[][4] line_path: array of 4-part tuples defining the voltage points
@@ -325,18 +328,19 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
             self._set_up_line(np.shape(line_path)[1])
 
         self.count_data = np.zeros((len(line_path[0]), len(self.get_scanner_count_channels())))
-        time_per_pix = []
         for pixel in range(len(line_path[0])):
-            t0 = time.time()
             self.scanner_set_position(line_path[0, pixel], line_path[1, pixel], line_path[2, pixel])
             self.pixel_done = False
             while not self.pixel_done:
-                time.sleep(0.001)
+                time.sleep(0.0005)
+            # Get counts + AFM elevation signal
             self.count_data[pixel] = self.current_pixel
+            # Append the AFM elevation channel if requested
+            if include_afm_elevation:
+                self.count_data[pixel] += [self._afm_logic.get_current_elevation()]
+            else:
+                self.count_data[pixel] += [0]
 
-            #self.count_data[pixel] = [np.average(i) for i in list(self._counting_device.get_counter())]
-            time_per_pix.append(time.time()-t0)
-        self.log.info("Scan time per pixel: " + str(time_per_pix))
         return self.count_data
 
     def close_scanner(self):

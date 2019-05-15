@@ -263,6 +263,7 @@ class ConfocalLogic(GenericLogic):
     _clock_frequency = StatusVar('clock_frequency', 500)
     return_slowness = StatusVar(default=50)
     max_history_length = StatusVar(default=10)
+    _include_afm_elevation = StatusVar(default=False)
 
     # signals
     signal_start_scanning = QtCore.Signal(str)
@@ -384,6 +385,12 @@ class ConfocalLogic(GenericLogic):
             return -1
         else:
             return 0
+
+    def set_include_afm_elevation(self, value):
+        self._include_afm_elevation = value
+
+    def get_set_include_afm_elevation(self):
+        return self._include_afm_elevation
 
     def start_scanning(self, zscan = False, tag='logic'):
         """Starts scanning
@@ -572,6 +579,9 @@ class ConfocalLogic(GenericLogic):
             self._scanning_device.module_state.unlock()
             self.module_state.unlock()
             return -1
+
+        # Set wether to include the AFM elevation channel in the scan
+        self._scanning_device.set_include_afm_elevation(self._include_afm_elevation)
 
         clock_status = self._scanning_device.set_up_scanner_clock(
             clock_frequency=self._clock_frequency)
@@ -802,7 +812,7 @@ class ConfocalLogic(GenericLogic):
                     [lsx, lsy, lsz, np.ones(lsx.shape) * self._current_a])
 
             # scan the line in the scan
-            line_counts = self._scanning_device.scan_line(line, pixel_clock=True)
+            line_counts = self._scanning_device.scan_line(line, pixel_clock=True, include_afm_elevation=self._include_afm_elevation)
             if np.any(line_counts == -1):
                 self.stopRequested = True
                 self.signal_scan_lines_next.emit()

@@ -1003,6 +1003,8 @@ class ConfocalGui(GUIBase):
         self._scanning_logic.return_slowness = self._sd.return_slowness_InputWidget.value()
         self._scanning_logic.permanent_scan = self._sd.loop_scan_CheckBox.isChecked()
         self._scanning_logic.depth_scan_dir_is_xz = self._sd.depth_dir_x_radioButton.isChecked()
+        self._scanning_logic.set_include_afm_elevation(
+            self._sd.include_afm_elevation_CheckBox.isChecked())
         self.fixed_aspect_ratio_xy = self._sd.fixed_aspect_xy_checkBox.isChecked()
         self.fixed_aspect_ratio_depth = self._sd.fixed_aspect_depth_checkBox.isChecked()
         self.slider_small_step = self._sd.slider_small_step_DoubleSpinBox.value()
@@ -1024,6 +1026,8 @@ class ConfocalGui(GUIBase):
             self._sd.depth_dir_x_radioButton.setChecked(True)
         else:
             self._sd.depth_dir_y_radioButton.setChecked(True)
+        self._sd.include_afm_elevation_CheckBox.setChecked(
+            self._scanning_logic.get_include_afm_elevation())
 
         self._sd.adjust_cursor_to_optimizer_checkBox.setChecked(self.adjust_cursor_roi)
         self._sd.fixed_aspect_xy_checkBox.setChecked(self.fixed_aspect_ratio_xy)
