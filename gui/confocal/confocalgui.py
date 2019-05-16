@@ -200,6 +200,7 @@ class ConfocalGui(GUIBase):
     image_z_padding = ConfigOption('image_z_padding', 0.02)
 
     window_title = ConfigOption('window_title', 'Confocal')
+    save_prefix = ConfigOption('save_prefix', 'Confocal')
 
     # status var
     adjust_cursor_roi = StatusVar(default=True)
@@ -1824,7 +1825,7 @@ class ConfocalGui(GUIBase):
         self._scanning_logic.save_xy_data(colorscale_range=cb_range, percentile_range=pcile_range)
 
         # TODO: find a way to produce raw image in savelogic.  For now it is saved here.
-        filepath = self._save_logic.get_path_for_module(module_name='Confocal')
+        filepath = self._save_logic.get_path_for_module(module_name=self.save_prefix)
         filename = os.path.join(
             filepath,
             time.strftime('%Y%m%d-%H%M-%S_confocal_xy_scan_raw_pixel_image'))
@@ -1854,7 +1855,7 @@ class ConfocalGui(GUIBase):
         self._scanning_logic.save_depth_data(colorscale_range=cb_range, percentile_range=pcile_range)
 
         # TODO: find a way to produce raw image in savelogic.  For now it is saved here.
-        filepath = self._save_logic.get_path_for_module(module_name='Confocal')
+        filepath = self._save_logic.get_path_for_module(module_name=self.save_prefix)
         filename = os.path.join(
             filepath,
             time.strftime('%Y%m%d-%H%M-%S_confocal_depth_scan_raw_pixel_image'))
