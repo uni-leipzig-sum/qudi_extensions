@@ -389,7 +389,7 @@ class ConfocalLogic(GenericLogic):
     def set_include_afm_elevation(self, value):
         self._include_afm_elevation = value
 
-    def get_set_include_afm_elevation(self):
+    def get_include_afm_elevation(self):
         return self._include_afm_elevation
 
     def start_scanning(self, zscan = False, tag='logic'):
@@ -579,9 +579,6 @@ class ConfocalLogic(GenericLogic):
             self._scanning_device.module_state.unlock()
             self.module_state.unlock()
             return -1
-
-        # Set wether to include the AFM elevation channel in the scan
-        self._scanning_device.set_include_afm_elevation(self._include_afm_elevation)
 
         clock_status = self._scanning_device.set_up_scanner_clock(
             clock_frequency=self._clock_frequency)

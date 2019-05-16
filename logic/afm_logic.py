@@ -84,13 +84,15 @@ class AfmLogic(GenericLogic):
         self._stop_requested = False
 
         # connect signals
-        self.sigGetNextMeasurement.connect(self._measurement_loop_body, QtCore.Qt.QueuedConnection)
+        self._sigGetNextMeasurement.connect(self._measurement_loop_body, QtCore.Qt.QueuedConnection)
 
     def on_deactivate(self):
         # Stop measurement loop if it is running
         if self.module_state() == 'locked':
             self._stop_measurement_join()
-        self.sigGetNextMeasurement.disconnect()
+
+        self._sigGetNextMeasurement.disconnect()
+
 
     def set_backlog(self, backlog=300):
         should_restart = (self.module_state() == 'locked')

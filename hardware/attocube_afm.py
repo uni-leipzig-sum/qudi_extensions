@@ -35,11 +35,13 @@ class AttocubeAfm(Base, AfmInterface):
     ADDRESS = 0x1035
 
     _socket = None
+    _socket_lock = None
     _ip_address = None
     _ip_port = None
 
     def __init__(self, config, **kwargs):
         super().__init__(config=config, **kwargs)
+        self._socket_lock = threading.Lock()
 
     def on_activate(self):
         config = self.getConfiguration()
@@ -55,12 +57,18 @@ class AttocubeAfm(Base, AfmInterface):
             self.log.error('No parameter "ip_port" configured in '
                            'AttocubeAfm. This parameter is mandatory.')
 
+        self._connect()
+
     def on_deactivate(self):
         self._disconnect()
 
     def get_elevation(self):
         # Get z-out in pm and convert to nm
-        return self._get_param(self.ADDRESS, 0) * 1000
+        try:
+            return self._get_param(self.ADDRESS, 0) / 1000
+        except queue.Empty:
+            self.log.error("Could not get elevation data from AFM. Request timed out.")
+            return 0
 
     def close(self):
         self._disconnect()

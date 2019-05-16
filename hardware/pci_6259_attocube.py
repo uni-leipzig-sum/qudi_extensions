@@ -333,13 +333,12 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
             self.pixel_done = False
             while not self.pixel_done:
                 time.sleep(0.0005)
-            # Get counts + AFM elevation signal
-            self.count_data[pixel] = self.current_pixel
             # Append the AFM elevation channel if requested
             if include_afm_elevation:
-                self.count_data[pixel] += [self._afm_logic.get_current_elevation()]
+                self.current_pixel += [self._afm_logic.get_current_elevation()]
             else:
-                self.count_data[pixel] += [0]
+                self.current_pixel += [0]
+            self.count_data[pixel] = self.current_pixel
 
         return self.count_data
 
