@@ -51,6 +51,21 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
     _ni_scanner_ao_subdevice = ConfigOption('ni_scanner_ao_subdevice', 1, missing='warn')
     # The range of the analog output channels to use (0: [-10V,10V], 1: [-5V,5V], 2: [-1*EXT V,1*EXT V])
     _ni_scanner_ao_range = ConfigOption('ni_scanner_ao_range', 0, missing='warn')
+    # Microscope temperature (in K) used to calibrate the piezo voltages
+    _temperature = ConfigOption('temperature', 300.0, missing='warn')
+    # Calibration factors
+    #   V = slope_voltage*T + offset_voltage
+    #   m = slope_distance*T + offset_distance
+    _slope_voltage = ConfigOption('slope_voltage', -0.0152, missing='warn')
+    _offset_voltage = ConfigOption('offset_voltage', 7.56, missing='warn')
+    _slope_distance_x = ConfigOption('slope_distance_x', 20.0e-6/296.0, missing='warn')
+    _offset_distance_x = ConfigOption('offset_distance_x', 804.0e-6/37.0, missing='warn')
+    _slope_distance_y = ConfigOption('slope_distance_y', 20.0e-6/296.0, missing='warn')
+    _offset_distance_y = ConfigOption('offset_distance_y', 804.0e-6/37.0, missing='warn')
+    _slope_distance_z = ConfigOption('slope_distance_z', 1.0e-6/296.0, missing='warn')
+    _offset_distance_z = ConfigOption('offset_distance_z', 147.0e-6/74.0, missing='warn')
+    
+    
     # Max output voltage allowed for the scanner piezos
     _max_output_voltage = ConfigOption('max_output_voltage', 3, missing='warn')
     # Piezo scanner calibration values
@@ -63,6 +78,13 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
         super().__init__(config=config, **kwargs)
 
         self._comedi_parsed_calibration = None
+        
+        # Calculate max output voltage of NI card for piezos and distance
+        # conversion factors using temperature calibration
+        self._max_output_voltage = self._slope_voltage * self._temperature + self._offset_voltage
+        self._piezo_scanner_x_meter_per_volt = (self._slope_distance_x * self._temperature + self._offset_distance_x) / self._max_output_voltage
+        self._piezo_scanner_y_meter_per_volt = (self._slope_distance_y * self._temperature + self._offset_distance_y) / self._max_output_voltage
+        self._piezo_scanner_z_meter_per_volt = (self._slope_distance_z * self._temperature + self._offset_distance_z) / self._max_output_voltage
         
         # Used for scanning a line. When we are waiting for the counts
         # for the current pixel, set this to false and wait for it to
@@ -258,7 +280,20 @@ class ConfocalScanner(Base, ConfocalScannerInterface):
             self.log.error('A Scanner is already running, close this one first.')
             return -1
 
+        
+
         for (axis, value) in ((0, x), (1, y), (2, z)):
+
+            voltage = self._position_to_voltage(axis, value)
+            if voltage > self._voltage_range[axis][1]:
+                self.log.warning(
+                    "Cannot set scanner position. Position is out of range!"+
+                    " (voltage=%gV, position=%gm)" % (
+                        voltage,
+                        value
+                    )
+                )
+                return -1
 
             comedi_sample = self._position_to_comedi(axis, value)
             

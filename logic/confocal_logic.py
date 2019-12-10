@@ -311,6 +311,8 @@ class ConfocalLogic(GenericLogic):
         self.y_range = self._scanning_device.get_position_range()[1]
         self.z_range = self._scanning_device.get_position_range()[2]
 
+        self.log.info("confocal logic: x_range=%s, y_range=%s, z_range=%s" % (repr(self.x_range), repr(self.y_range), repr(self.z_range)))
+
         # restore here ...
         self.history = []
         for i in reversed(range(1, self.max_history_length)):
@@ -330,6 +332,13 @@ class ConfocalLogic(GenericLogic):
         try:
             new_state = ConfocalHistoryEntry(self)
             new_state.deserialize(self._statusVariables['history_0'])
+
+            # Check if ranges are still correct. If not, e.g. temperature has changed,
+            # discard history and start fresh.
+
+            if new_state.x_range != self.x_range or new_state.y_range != self.y_range or new_state.z_range:
+                new_state = ConfocalHistoryEntry(self)
+
             new_state.restore(self)
         except:
             new_state = ConfocalHistoryEntry(self)
@@ -447,6 +456,8 @@ class ConfocalLogic(GenericLogic):
         y1, y2 = self.image_y_range[0], self.image_y_range[1]
         # z1: x-start-value, z2: x-end-value
         z1, z2 = self.image_z_range[0], self.image_z_range[1]
+
+        self.log.info("confocal logic -- initialize_image: image_x_range=%s, image_y_range=%s, image_z_range=%s" % (repr(self.image_x_range), repr(self.image_y_range), repr(self.image_z_range)))
 
         # Checks if the x-start and x-end value are ok
         if x2 < x1:
