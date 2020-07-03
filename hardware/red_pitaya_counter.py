@@ -83,6 +83,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
         try:
             self._ip_connection = self._rm.open_resource('TCPIP::{0}::5000::SOCKET'.format(self._ip_address),
                                                         read_termination='\r\n', write_termination='\r\n')
+            self._ip_connection.timeout = 15000
         except:
             self.log.error('This is RedPitayaCounter: could not connect to RedPitaya on IP address {0}'
                            ''.format(self._ip_address))
@@ -183,7 +184,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
         #self._count_time = float(self._query_command("COUNT:time?"))
         count_data = np.empty([self.source_channels+1, samples], dtype=np.uint32)
         for i in range(samples):
-            counts = [int(x) for x in self._query_command('COUNTER:COUNT?').split(',')]
+            counts = [float(x) for x in self._query_command('COUNTER:COUNT? 1').split(',')]
             counts += [sum(counts)]
             if len(counts) < self.source_channels:
                 self.log.error('Red Pitaya Counter got counts from {0} channels, but {1} '
@@ -191,7 +192,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
                 return 0
                 
             for j in range(self.source_channels+1):
-                count_data[j, i] = int(counts[j] * self._clock_frequency)
+                count_data[j, i] = counts[j]
                 
         return count_data
 
@@ -202,10 +203,20 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
         """
         return ['APD{0}'.format(i) for i in range(self.source_channels)]+["Sum"]
 
+    def _check_error_response(self, resp):
+        if resp.startswith("ERR:"):
+            raise RuntimeError(resp[4:].strip())
+
     def _send_command(self, cmd):
-        self._ip_connection.write(cmd)
+        self._query_command(cmd)
 
     def _query_command(self, cmd):
+        try:
+            resp = self._ip_connection.query(cmd)
+            self._check_error_response(resp)
+            return resp
+        except:
+            raise
         return self._ip_connection.query(cmd)
 
     def close_counter(self):
