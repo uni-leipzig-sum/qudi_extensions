@@ -21,6 +21,7 @@ top-level directory of this distribution and at <https://github.com/Ulm-IQO/qudi
 
 import numpy as np
 
+import socket
 import random
 import time
 import visa
@@ -79,15 +80,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
         self.source_channels = 2
         self.odmr_length = 100
 
-        self._rm = visa.ResourceManager('@py')
-        try:
-            self._ip_connection = self._rm.open_resource('TCPIP::{0}::5000::SOCKET'.format(self._ip_address),
-                                                        read_termination='\r\n', write_termination='\r\n')
-            self._ip_connection.timeout = 15000
-        except:
-            self.log.error('This is RedPitayaCounter: could not connect to RedPitaya on IP address {0}'
-                           ''.format(self._ip_address))
-            raise
+        self._connect()
 
         # Initialize Counter
         # NOTE: Do not do that here! This messes up the counts (why?)
@@ -98,14 +91,26 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
         
         self.log.info('RedPitayaCounter initialized and connected to hardware.')
         return
-            
-        
+
+    def _connect(self):
+        try:
+            self._ip_connection = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self._ip_connection.connect((self._ip_address, 5000))
+        except:
+            self.log.error('This is RedPitayaCounter: could not connect to RedPitaya on IP address {0}'
+                           ''.format(self._ip_address))
+            raise
+
+    def _disconnect(self):
+        self._ip_connection.shutdown()
+        self._ip_connection.close()
+
+
 
     def on_deactivate(self):
         """ Deinitialisation performed during deactivation of the module.
         """
-        #self._ip_connection.close()
-        #self._rm.close()
+        self._disconnect()
         return
 
     def get_constraints(self):
@@ -184,7 +189,8 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
         #self._count_time = float(self._query_command("COUNT:time?"))
         count_data = np.empty([self.source_channels+1, samples], dtype=np.uint32)
         for i in range(samples):
-            counts = [float(x) for x in self._query_command('COUNTER:COUNT? 1').split(',')]
+            counts = [float(x) for x in self._query_command('COUNTER:COUNTS?').split(',')]
+            
             counts += [sum(counts)]
             if len(counts) < self.source_channels:
                 self.log.error('Red Pitaya Counter got counts from {0} channels, but {1} '
@@ -212,12 +218,37 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
 
     def _query_command(self, cmd):
         try:
-            resp = self._ip_connection.query(cmd)
+            if not cmd.endswith("\r\n"):
+                cmd += "\r\n"
+            cmd = cmd.encode("ascii")
+
+            # Sending command
+            totalsent = 0
+            while totalsent < len(cmd):
+                sent = self._ip_connection.send(cmd[totalsent:])
+                if sent == 0:
+                    self.log.error("Connection error to redpitaya...Reconnecting")
+                    self._connect()
+                else:
+                    totalsent += sent
+
+            # Receiving response
+            chunks = []
+            while True:
+                chunk = self._ip_connection.recv(2048)
+                chunks.append(chunk)
+                if chunk == b'':
+                    self.log.error("Connection error to redpitaya...Reconnecting")
+                    self._connect()
+                elif len(chunk) >= 1 and chunk[-1] == 0xa and chunk[-2] == 0xd:
+                    break
+            resp = b''.join(chunks).decode("ascii")
+
             self._check_error_response(resp)
             return resp
         except:
             raise
-        return self._ip_connection.query(cmd)
+
 
     def close_counter(self):
         """ Closes the counter and cleans up afterwards.

@@ -591,8 +591,6 @@ class SlowODMRLogic(GenericLogic):
         (from mw_start to mw_stop in steps of mw_step)
         """
 
-        self.log.info("called _scan_odmr_line")
-
         with self.threadlock:
             # If the odmr measurement is not running do nothing
             if self.module_state() != 'locked':
