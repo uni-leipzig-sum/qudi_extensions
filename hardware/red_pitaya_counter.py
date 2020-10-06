@@ -102,7 +102,7 @@ class RedPitayaCounter(Base, SlowCounterInterface, ODMRCounterInterface):
             raise
 
     def _disconnect(self):
-        self._ip_connection.shutdown()
+        self._ip_connection.shutdown(socket.SHUT_RDWR)
         self._ip_connection.close()
 
 
